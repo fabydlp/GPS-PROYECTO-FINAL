@@ -72,8 +72,7 @@ def main():
         
         - ✨ **Ultra-Oro**: PD < 1%
         - ⭐ **Oro**: PD < 3%
-        - 🟡 **Estándar**: PD < 9%
-        - 🔴 **Rechazo**: PD ≥ 9%
+        - 🔴 **Rechazo**: PD ≥ 3%
         
         La garantía FINTECH se mantiene, pero la garantía interna de la SOFOM varía según la categoría.
         """)

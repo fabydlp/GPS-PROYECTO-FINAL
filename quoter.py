@@ -38,16 +38,8 @@ def apply_premium_select_guarantee(pd_pred, approved_amount):
             'action': 'Aprobación con Condiciones Preferenciales',
             'max_guarantee_limit': approved_amount * 0.75
         }
-    elif pd_pred < 0.09:
-        # Entre 3% y 9% PD
-        return {
-            'category': 'Estándar',
-            'soform_guarantee_pct': 0.30, # 30%
-            'action': 'Aprobación Estándar',
-            'max_guarantee_limit': approved_amount * 0.70
-        }
     else:
-        # 9% PD o más
+        # 3% PD o más
         return {
             'category': 'Rechazo (Riesgo Alto)',
             'soform_guarantee_pct': 0.00, # 0%
@@ -231,10 +223,8 @@ def print_quote(quote):
         risk_color = "✨ ULTRA–ORO (PD < 1%)"
     elif quote['gps_category'] == 'Oro':
         risk_color = "⭐ ORO (PD < 3%)"
-    elif quote['gps_category'] == 'Estándar':
-        risk_color = "🟡 ESTÁNDAR (PD < 9%)"
     else:
-        risk_color = "🔴 RECHAZO (PD >= 9%)"
+        risk_color = "🔴 RECHAZO (PD >= 3%)"
 
     print(f"CATEGORÍA GPS:    {risk_color}")
     print(f"Acción Sugerida:  {quote['action']}")

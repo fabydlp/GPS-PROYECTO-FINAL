@@ -38,13 +38,6 @@ st.markdown("""
         text-align: center;
         font-weight: bold;
     }
-    .category-estandar {
-        background-color: #FFE66D;
-        padding: 10px;
-        border-radius: 5px;
-        text-align: center;
-        font-weight: bold;
-    }
     .category-rechazo {
         background-color: #FF6B6B;
         padding: 10px;
@@ -184,11 +177,8 @@ def main():
                 elif category == 'Oro':
                     st.markdown('<div class="category-oro">⭐ CATEGORÍA: ORO (PD < 3%)</div>', 
                               unsafe_allow_html=True)
-                elif category == 'Estándar':
-                    st.markdown('<div class="category-estandar">🟡 CATEGORÍA: ESTÁNDAR (PD < 9%)</div>', 
-                              unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="category-rechazo">🔴 CATEGORÍA: RECHAZO (PD ≥ 9%)</div>', 
+                    st.markdown('<div class="category-rechazo">🔴 CATEGORÍA: RECHAZO (PD ≥ 3%)</div>', 
                               unsafe_allow_html=True)
                 
                 st.markdown("")
@@ -269,7 +259,7 @@ def main():
                         "Pérdida Esperada (EL)": f"${quote['expected_loss']:,.2f} MXN",
                         "Categoría GPS": quote['gps_category'],
                         "Garantía SOFOM": f"{quote['soform_guarantee_pct']*100:.0f}%",
-                        "Sector": f"{scian_code} - {SECTORES_SCIAN[scian_code]['nombre']}",
+                        "Sector": f"{scian_code} - {SECTORES_SCIAN.get(scian_code, 'No especificado')}",
                         "Estado": f"{state_code} - {ESTADOS_MEXICO[state_code]}"
                     })
                 

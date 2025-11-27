@@ -179,3 +179,68 @@ def transform_data(preprocessor, X):
         cols = [f"f{i}" for i in range(X_mat.shape[1])]
 
     return pd.DataFrame(X_mat, index=X.index, columns=cols)
+
+# =========================================
+# DICCIONARIO DE SECTORES SCIAN
+# =========================================
+SECTORES_SCIAN = {
+    '11': 'Agricultura, ganadería, pesca',
+    '21': 'Minería',
+    '22': 'Generación de energía',
+    '23': 'Construcción',
+    '31': 'Manufactura - Alimentos',
+    '32': 'Manufactura - Textil/Química',
+    '33': 'Manufactura - Metálica/Maquinaria',
+    '43': 'Comercio al por mayor',
+    '46': 'Comercio al por menor',
+    '48': 'Transporte',
+    '51': 'Información en medios',
+    '52': 'Servicios financieros',
+    '53': 'Servicios inmobiliarios',
+    '54': 'Servicios profesionales',
+    '56': 'Servicios de apoyo',
+    '61': 'Servicios educativos',
+    '62': 'Servicios de salud',
+    '71': 'Esparcimiento/Cultura',
+    '72': 'Alojamiento/Alimentos',
+    '81': 'Otros servicios',
+    '00': 'No especificado',
+}
+
+# =========================================
+# DICCIONARIO DE ESTADOS MEXICANOS
+# =========================================
+ESTADOS_MEXICO = {
+    'AGS': 'Aguascalientes',
+    'BC': 'Baja California',
+    'BCS': 'Baja California Sur',
+    'CAM': 'Campeche',
+    'CHIS': 'Chiapas',
+    'CHIH': 'Chihuahua',
+    'CDMX': 'Ciudad de México',
+    'COAH': 'Coahuila',
+    'COL': 'Colima',
+    'DGO': 'Durango',
+    'GTO': 'Guanajuato',
+    'GRO': 'Guerrero',
+    'HGO': 'Hidalgo',
+    'JAL': 'Jalisco',
+    'MEX': 'Estado de México',
+    'MIC': 'Michoacán',
+    'MOR': 'Morelos',
+    'NAY': 'Nayarit',
+    'NL': 'Nuevo León',
+    'OAX': 'Oaxaca',
+    'PUE': 'Puebla',
+    'QRO': 'Querétaro',
+    'QROO': 'Quintana Roo',
+    'SLP': 'San Luis Potosí',
+    'SIN': 'Sinaloa',
+    'SON': 'Sonora',
+    'TAB': 'Tabasco',
+    'TAM': 'Tamaulipas',
+    'TLAX': 'Tlaxcala',
+    'VER': 'Veracruz',
+    'YUC': 'Yucatán',
+    'ZAC': 'Zacatecas',
+}

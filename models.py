@@ -9,7 +9,6 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, Grad
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 
-
 try:
     from xgboost import XGBRegressor, XGBClassifier
     HAS_XGBOOST = True
@@ -18,7 +17,7 @@ except ImportError:
     print("⚠ XGBoost no instalado. Usando alternativas de sklearn.")
 
 
-def train_pd_model(X_train, y_train, model_type='xgboost'):
+def train_pd_model(X_train, y_train, model_type='random_forest'):
     """
     Train Probability of Default (PD) model
     Entrena modelo de Probabilidad de Incumplimiento
@@ -53,35 +52,28 @@ def train_pd_model(X_train, y_train, model_type='xgboost'):
             n_jobs=-1
         )
     elif model_type == 'xgboost' and HAS_XGBOOST:
-
+        # Calcular scale_pos_weight para desbalance
+        scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
         model = XGBClassifier(
-        n_estimators=600,
-        learning_rate=0.02,
-        max_depth=4,
-        min_child_weight=5,
-        gamma=0.2,
-        subsample=0.8,
-        colsample_bytree=0.6,
-        reg_alpha=1.0,
-        reg_lambda=2.0,
-        scale_pos_weight=3,
-        max_delta_step=1,
-        tree_method="hist",
-        eval_metric="auc",
-        random_state=2024)
-
-        
+            n_estimators=200,
+            max_depth=6,
+            learning_rate=0.05,
+            scale_pos_weight=scale_pos_weight,
+            random_state=42,
+            n_jobs=-1,
+            use_label_encoder=False,
+            eval_metric='logloss'
+        )
     else:
         # Default a Random Forest si XGBoost no está disponible
-        model = RandomForestClassifier(n_estimators=2500,
-                                       max_depth=18,
-                                       min_samples_split=5,
-                                       min_samples_leaf=2,
-                                       max_features="sqrt",
-                                       bootstrap=True,
-                                       class_weight="balanced",
-                                       n_jobs=-1,
-                                       random_state=2024)
+        model = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=12,
+            min_samples_leaf=50,
+            class_weight='balanced',
+            random_state=42,
+            n_jobs=-1
+        )
     
     # Entrenar modelo base
     model.fit(X_train, y_train)

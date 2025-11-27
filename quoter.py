@@ -2,8 +2,8 @@
 Calculadora de Garantía de Crédito PyME México
 SBA Mexico Loan Guarantee Fee Calculator
 
-Implementación de la lógica de Garantía Premium Select (GPS).
-La garantía interna de la SOFOM se ajusta según el PD predicho.
+Ejecuta este script para obtener una cotización de garantía NAFIN
+para un préstamo PyME en México.
 """
 
 import pickle
@@ -12,55 +12,21 @@ import numpy as np
 import pandas as pd
 from features import create_preprocessor, transform_data, SECTORES_SCIAN, ESTADOS_MEXICO
 
-# --- NUEVA FUNCIÓN GPS ---
-def apply_premium_select_guarantee(pd_pred, approved_amount):
-    """
-    Asigna la categoría de Garantía Premium Select (GPS) y define la garantía interna
-    de la SOFOM (en el contexto del proyecto original, esta sería la garantía interna).
-
-    La Garantía FINTECH (externa) se mantiene sin cambios, pero la PD define la categoría.
-    
-    Retorna: diccionario con categoria, garantia_interna_soform (en %), y accion.
-    """
-    if pd_pred < 0.01:
-        # Menos de 1% PD
-        return {
-            'category': 'Ultra–Oro',
-            'soform_guarantee_pct': 0.85, 
-            'action': 'Aprobación Rápida con Beneficio',
-            'max_guarantee_limit': approved_amount * 0.8 
-        }
-    elif pd_pred < 0.03:
-        # Entre 1% y 3% PD
-        return {
-            'category': 'Oro',
-            'soform_guarantee_pct': 0.70, # 70%
-            'action': 'Aprobación con Condiciones Preferenciales',
-            'max_guarantee_limit': approved_amount * 0.75
-        }
-    else:
-        # 3% PD o más
-        return {
-            'category': 'Rechazo (Riesgo Alto)',
-            'soform_guarantee_pct': 0.00, # 0%
-            'action': 'Rechazo por Política de Riesgo',
-            'max_guarantee_limit': 0.0
-        }
-# -------------------------
 
 def calculate_nafin_guarantee(approved_amount):
     """
-    Calculate FINTECH guarantee amount based on loan size
-    Calcula el monto de garantía FINTECH según el tamaño del préstamo
+    Calculate NAFIN guarantee amount based on loan size
+    Calcula el monto de garantía NAFIN según el tamaño del préstamo
+    
+    Reglas típicas de NAFIN:
+    - Préstamos ≤ $2,000,000 MXN: hasta 80% de garantía
+    - Préstamos > $2,000,000 MXN: hasta 70% de garantía
     """
     if approved_amount <= 2_000_000:
         return approved_amount * 0.80
     else:
         return approved_amount * 0.70
 
-# El resto de las funciones (calculate_monthly_payment, create_loan_features,
-# load_models, show_scian_codes, show_state_codes, main) se mantienen casi igual,
-# pero se modifica `calculate_quote` y `print_quote`.
 
 def calculate_monthly_payment(principal, annual_rate, term_months):
     """
@@ -98,9 +64,9 @@ def create_loan_features(approved_amount, term_months, num_employees,
         'Term_Years': term_months / 12.0,
         'Debt_to_NAFIN': approved_amount - nafin_guaranteed,
         'Log_GrAppv': np.log1p(approved_amount),
-        'HasRealEstate': 0, # Default: sin garantía inmobiliaria
-        'InRecession': 0,   # Default: no en recesión
-        'IsUrban': 1,       # Default: urbano
+        'HasRealEstate': 0,  # Default: sin garantía inmobiliaria
+        'InRecession': 0,    # Default: no en recesión
+        'IsUrban': 1,        # Default: urbano
     }
     
     return pd.DataFrame([features])
@@ -128,12 +94,13 @@ def load_models():
     with open('sba_mexico_model.pkl', 'rb') as f:
         return pickle.load(f)
 
-# --- FUNCIÓN MODIFICADA: calculate_quote ---
+
 def calculate_quote(approved_amount, term_months, num_employees, 
-                    is_new_business, scian_code, state_code, bank_rate,
-                    has_real_estate=False, in_recession=False):
+                   is_new_business, scian_code, state_code, bank_rate,
+                   has_real_estate=False, in_recession=False):
     """
-    Calculate complete loan quote, including GPS category.
+    Calculate complete loan quote
+    Calcula la cotización completa del préstamo
     """
     
     # Cargar modelos
@@ -157,34 +124,19 @@ def calculate_quote(approved_amount, term_months, num_employees,
     lgd_pred = artifacts['lgd_model'].predict(X_processed)[0]
     el_pred = pd_pred * lgd_pred * artifacts['calibration_factor']
     
-    # === APLICAR LÓGICA GPS ===
-    gps_info = apply_premium_select_guarantee(pd_pred, approved_amount)
-    category = gps_info['category']
-    soform_guarantee_pct = gps_info['soform_guarantee_pct']
+    # Calcular comisión de garantía
+    # La comisión cubre la pérdida esperada + margen de seguridad (20%)
+    nafin_guaranteed = calculate_nafin_guarantee(approved_amount)
     
-    # Si la categoría es 'Rechazo', la comisión y el pago son 0.
-    if category == 'Rechazo (Riesgo Alto)':
-        guarantee_fee = 0.0
-        total_financed = approved_amount
-        monthly_payment = 0.0
-        nafin_guaranteed = 0.0
-    else:
-        # Calcular garantía FINTECH (garantía externa)
-        nafin_guaranteed = calculate_nafin_guarantee(approved_amount)
-        
-        # Calcular comisión de garantía (la prima de riesgo)
-        # La comisión cubre la pérdida esperada + margen de seguridad (20%)
-        # Nota: La SOFOM podría ajustar la tasa de interés o la comisión FINTECH 
-        # en las categorías 'Ultra-Oro' para reflejar el menor riesgo, pero
-        # aquí solo ajustamos la comisión basándonos en la EL predicha.
-        
-        guarantee_fee = el_pred * 1.20 # EL * 1.20 (20% de margen)
-        guarantee_fee = max(guarantee_fee, nafin_guaranteed * 0.005)  # Mínimo 0.5%
-        guarantee_fee = min(guarantee_fee, nafin_guaranteed * 0.05)   # Máximo 5%
-
-        # Calcular pago mensual
-        total_financed = approved_amount + guarantee_fee
-        monthly_payment = calculate_monthly_payment(total_financed, bank_rate, term_months)
+    # Comisión = EL * 1.20 (20% de margen)
+    # Con límites: mínimo 0.5% y máximo 5% del monto garantizado
+    guarantee_fee = el_pred * 1.20
+    guarantee_fee = max(guarantee_fee, nafin_guaranteed * 0.005)  # Mínimo 0.5%
+    guarantee_fee = min(guarantee_fee, nafin_guaranteed * 0.05)   # Máximo 5%
+    
+    # Calcular pago mensual
+    total_financed = approved_amount + guarantee_fee
+    monthly_payment = calculate_monthly_payment(total_financed, bank_rate, term_months)
     
     return {
         'approved_amount': approved_amount,
@@ -199,67 +151,62 @@ def calculate_quote(approved_amount, term_months, num_employees,
         'bank_rate': bank_rate,
         'scian_code': scian_code,
         'state': state_code,
-        'gps_category': category,                 # NUEVO: Categoría GPS
-        'soform_guarantee_pct': soform_guarantee_pct, # NUEVO: Garantía interna SOFOM
-        'action': gps_info['action']
     }
 
-# --- FUNCIÓN MODIFICADA: print_quote ---
+
 def print_quote(quote):
     """
-    Print formatted quote, including GPS category and internal guarantee.
+    Print formatted quote
+    Imprime la cotización formateada
     """
     sector_name = SECTORES_SCIAN.get(str(quote['scian_code'])[:2], 'No especificado')
     state_name = ESTADOS_MEXICO.get(quote['state'].upper(), quote['state'])
     
-    print("\n" + "="*70)
-    print("COTIZACIÓN DE CRÉDITO PYME - PROGRAMA GARANTÍA PREMIUM SELECT")
-    print("="*70)
+    print("\n" + "="*60)
+    print("COTIZACIÓN DE GARANTÍA NAFIN - CRÉDITO PYME")
+    print("="*60)
     
-    print("\n--- Clasificación de Riesgo ---")
+    print("\n--- Datos del Préstamo ---")
+    print(f"Sector:                   {sector_name} (SCIAN {quote['scian_code']})")
+    print(f"Estado:                   {state_name}")
     
-    # Asignar color según categoría
-    if quote['gps_category'] == 'Ultra–Oro':
-        risk_color = "✨ ULTRA–ORO (PD < 1%)"
-    elif quote['gps_category'] == 'Oro':
-        risk_color = "⭐ ORO (PD < 3%)"
+    print("\n--- Evaluación de Riesgo ---")
+    print(f"Monto del Préstamo:       ${quote['approved_amount']:,.2f} MXN")
+    print(f"Monto Garantizado NAFIN:  ${quote['nafin_guaranteed']:,.2f} MXN")
+    print(f"Probabilidad de Default:  {quote['pd']*100:.2f}%")
+    print(f"Pérdida Dado Default:     ${quote['lgd']:,.2f} MXN")
+    print(f"Pérdida Esperada:         ${quote['expected_loss']:,.2f} MXN")
+    
+    # Indicador de riesgo
+    if quote['pd'] < 0.05:
+        risk_level = "🟢 BAJO"
+    elif quote['pd'] < 0.10:
+        risk_level = "🟡 MODERADO"
+    elif quote['pd'] < 0.15:
+        risk_level = "🟠 MEDIO-ALTO"
     else:
-        risk_color = "🔴 RECHAZO (PD >= 3%)"
-
-    print(f"CATEGORÍA GPS:    {risk_color}")
-    print(f"Acción Sugerida:  {quote['action']}")
-    print(f"Garantía Interna SOFOM: {quote['soform_guarantee_pct']*100:.0f}%")
+        risk_level = "🔴 ALTO"
     
-    print("\n--- Datos del Préstamo y Evaluación de Riesgo ---")
-    print(f"Monto del Préstamo:        ${quote['approved_amount']:,.2f} MXN")
-    print(f"Probabilidad de Default:   {quote['pd']*100:.2f}%")
-    print(f"Pérdida Esperada (EL):     ${quote['expected_loss']:,.2f} MXN")
-    print(f"Sector:                    {sector_name} (SCIAN {quote['scian_code']})")
-    print(f"Estado:                    {state_name}")
+    print(f"Nivel de Riesgo:          {risk_level}")
     
-    if quote['gps_category'] == 'Rechazo (Riesgo Alto)':
-        print("\n--- Resultado ---")
-        print("❌ SOLICITUD RECHAZADA por alto riesgo (PD >= 9%).")
-        print(f"La pérdida esperada ({quote['expected_loss']:,.2f} MXN) es superior al límite operativo.")
-    else:
-        print("\n--- Términos Financieros ---")
-        print(f"Monto Garantizado FINTECH (Ext.): ${quote['nafin_guaranteed']:,.2f} MXN")
-        print(f"Comisión FINTECH (Ajustada a EL): ${quote['guarantee_fee']:,.2f} MXN")
-        fee_pct = (quote['guarantee_fee'] / quote['nafin_guaranteed']) * 100 if quote['nafin_guaranteed'] > 0 else 0
-        print(f"  ({fee_pct:.2f}% del monto garantizado FINTECH)")
-        
-        print(f"\nTotal a Financiar:         ${quote['total_financed']:,.2f} MXN")
-        print(f"Tasa de Interés:           {quote['bank_rate']:.2f}% anual")
-        print(f"Plazo:                     {quote['term_months']} meses")
-        print(f"\nPAGO MENSUAL ESTIMADO:     ${quote['monthly_payment']:,.2f} MXN")
+    print("\n--- Comisión de Garantía ---")
+    print(f"Comisión NAFIN:           ${quote['guarantee_fee']:,.2f} MXN")
+    fee_pct = (quote['guarantee_fee'] / quote['nafin_guaranteed']) * 100
+    print(f"                          ({fee_pct:.2f}% del monto garantizado)")
     
-    print("\n" + "="*70)
-    print("Nota: La Garantía Interna SOFOM es la reserva de riesgo")
-    print("que la institución asigna internamente al crédito.")
-    print("="*70 + "\n")
+    print("\n--- Pago Mensual ---")
+    print(f"Monto del Préstamo:       ${quote['approved_amount']:,.2f} MXN")
+    print(f"+ Comisión de Garantía:   ${quote['guarantee_fee']:,.2f} MXN")
+    print(f"= Total a Financiar:      ${quote['total_financed']:,.2f} MXN")
+    print(f"\nTasa de Interés:          {quote['bank_rate']:.2f}% anual")
+    print(f"Plazo:                    {quote['term_months']} meses")
+    print(f"\nPAGO MENSUAL:             ${quote['monthly_payment']:,.2f} MXN")
+    
+    print("\n" + "="*60)
+    print("Nota: Esta cotización es informativa. La aprobación final")
+    print("depende de la evaluación del banco y de NAFIN.")
+    print("="*60 + "\n")
 
-
-# Se mantienen las funciones show_scian_codes, show_state_codes, main, y quick_quote
 
 def show_scian_codes():
     """Muestra los códigos SCIAN disponibles"""
@@ -283,7 +230,7 @@ def main():
     Cotizador interactivo principal
     """
     print("\n" + "="*60)
-    print("CALCULADORA DE GARANTÍA FINTECH - CRÉDITO PYME MÉXICO")
+    print("CALCULADORA DE GARANTÍA NAFIN - CRÉDITO PYME MÉXICO")
     print("="*60)
     print("\nIngresa los datos del préstamo:\n")
     
@@ -304,13 +251,13 @@ def main():
         show_codes = input("5. ¿Ver códigos SCIAN? (s/n): ").lower() in ['s', 'si', 'sí', 'y', 'yes']
         if show_codes:
             show_scian_codes()
-        scian = input("  Código SCIAN (2 dígitos, ej: 46 para comercio): ").strip()
+        scian = input("   Código SCIAN (2 dígitos, ej: 46 para comercio): ").strip()
         
         # Estado
         show_states = input("6. ¿Ver códigos de estados? (s/n): ").lower() in ['s', 'si', 'sí', 'y', 'yes']
         if show_states:
             show_state_codes()
-        state = input("  Estado (ej: JAL, CDMX, NL): ").strip().upper()
+        state = input("   Estado (ej: JAL, CDMX, NL): ").strip().upper()
         
         # Tasa de interés
         bank_rate = float(input("7. Tasa de interés del banco (%, ej: 12.5): "))

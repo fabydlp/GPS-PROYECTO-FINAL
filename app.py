@@ -6,8 +6,12 @@ Interfaz gráfica para el sistema de Garantía Premium Select (GPS)
 import streamlit as st
 import pandas as pd
 import numpy as np
-from quoter import calculate_quote, load_models
-from features import SECTORES_SCIAN, ESTADOS_MEXICO
+from quoter import (
+    calculate_quote, 
+    load_models, 
+    SECTORES_SCIAN, 
+    ESTADOS_MEXICO
+)
 
 # Configuración de la página
 st.set_page_config(
@@ -72,8 +76,7 @@ def main():
         
         - ✨ **Ultra-Oro**: PD < 1%
         - ⭐ **Oro**: PD < 3%
-        - 🟡 **Estándar**: PD < 9%
-        - 🔴 **Rechazo**: PD ≥ 9%
+        - 🔴 **Rechazo**: PD ≥ 3%
         
         La garantía FINTECH se mantiene, pero la garantía interna de la SOFOM varía según la categoría.
         """)
@@ -121,8 +124,8 @@ def main():
         st.subheader("🏢 Información del Negocio")
         
         # Sector SCIAN
-        scian_options = {f"{code} - {nombre[:40]}": code 
-                        for code, nombre in SECTORES_SCIAN.items()}
+        scian_options = {f"{code} - {info['nombre'][:40]}": code 
+                        for code, info in SECTORES_SCIAN.items()}
         scian_selected = st.selectbox(
             "Sector Económico (SCIAN)",
             options=list(scian_options.keys()),
@@ -185,11 +188,8 @@ def main():
                 elif category == 'Oro':
                     st.markdown('<div class="category-oro">⭐ CATEGORÍA: ORO (PD < 3%)</div>', 
                               unsafe_allow_html=True)
-                elif category == 'Estándar':
-                    st.markdown('<div class="category-estandar">🟡 CATEGORÍA: ESTÁNDAR (PD < 9%)</div>', 
-                              unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="category-rechazo">🔴 CATEGORÍA: RECHAZO (PD ≥ 9%)</div>', 
+                    st.markdown('<div class="category-rechazo">🔴 CATEGORÍA: RECHAZO (PD ≥ 3%)</div>', 
                               unsafe_allow_html=True)
                 
                 st.markdown("")
@@ -270,7 +270,7 @@ def main():
                         "Pérdida Esperada (EL)": f"${quote['expected_loss']:,.2f} MXN",
                         "Categoría GPS": quote['gps_category'],
                         "Garantía SOFOM": f"{quote['soform_guarantee_pct']*100:.0f}%",
-                        "Sector": f"{scian_code} - {SECTORES_SCIAN.get(scian_code, 'No especificado')}",
+                        "Sector": f"{scian_code} - {SECTORES_SCIAN[scian_code]['nombre']}",
                         "Estado": f"{state_code} - {ESTADOS_MEXICO[state_code]}"
                     })
                 

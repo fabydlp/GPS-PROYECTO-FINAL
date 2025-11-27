@@ -81,7 +81,7 @@ def main():
     # =========================================
     print("\n[4/6] Entrenando modelo de Probabilidad de Default (PD)...")
     
-    pd_model = train_pd_model(X_train_t, y_pd_train, model_type='random_forest')
+    pd_model = train_pd_model(X_train_t, y_pd_train, model_type='xgboost')
     
     # Evaluar en test
     pd_pred_test = pd_model.predict_proba(X_test_t)[:, 1]
@@ -102,7 +102,7 @@ def main():
     
     print(f"   ✓ Préstamos en default para entrenamiento: {len(X_defaults):,}")
     
-    lgd_model = train_lgd_model(X_defaults, y_loss_defaults, model_type='xgboost')
+    lgd_model = train_lgd_model(X_defaults, y_loss_defaults, model_type='randomforest')
     
     # Evaluar en test (solo defaults)
     defaults_mask_test = y_pd_test == 1
